@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <title>Universal Gemini Chat</title>
+    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests" />
+    
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -126,7 +128,7 @@
             if (!text) return '';
             // Convert **bold** to <strong>
             text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-            // Convert list items to paragraphs. Margins are handled by CSS #chatOutput p
+            // Convert list items to paragraphs with minimal margin
             text = text.replace(/(\*|\-)\s+(.*)/g, '<p style="margin-left: 15px;">&bull; $2</p>');
             // Convert simple newlines to <br> 
             text = text.replace(/\n/g, '<br>'); 
