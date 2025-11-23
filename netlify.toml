@@ -1,7 +1,3 @@
 [build]
-  # Tell Netlify where the functions are located (using the default, zero-config setting)
+  # Tell Netlify where the functions are located (this is the only requirement)
   functions = "netlify/functions"
-
-# Optionally specify a Node version for stability
-[build.environment]
-  NODE_VERSION = "18"
