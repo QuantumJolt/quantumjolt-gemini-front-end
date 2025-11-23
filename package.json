@@ -1,5 +1,5 @@
 {
-  "name": "gemini-api-proxy-netlify",
+  "name": "gemini-chat-proxy-function",
   "version": "1.0.0",
   "dependencies": {
     "node-fetch": "^2.6.7"
