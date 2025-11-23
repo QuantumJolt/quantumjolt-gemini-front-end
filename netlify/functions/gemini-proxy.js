@@ -1,29 +1,29 @@
-// netlify/functions/gemini-proxy.js - NETLIFY HANDLER
+// netlify/functions/gemini-proxy.js - FINAL ROBUST HANDLER
 
-// We use require syntax which is reliable on Netlify
+// Ensure fetch is available
 const fetch = require('node-fetch');
 
-// The handler function Netlify calls
+// The main handler function Netlify calls
 exports.handler = async function(event, context) {
   
-  // 1. Check for the API Key stored as an Environment Variable on Netlify
+  // 1. CONFIGURATION CHECK
   const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
   const targetModel = "gemini-2.5-flash"; 
   
+  // Send 500 error if key is missing (internal proxy error)
   if (!GEMINI_API_KEY) {
-    // Netlify function error response format
-    return { statusCode: 500, body: JSON.stringify({ error: 'Server configuration error: API Key is missing.' }) };
+    return { statusCode: 500, body: JSON.stringify({ error: 'Server configuration error: API Key is missing from Netlify settings.' }) };
   }
   
-  // Netlify functions receive data in event.body (which is a string)
+  // Parse incoming request body
   let requestBody;
   try {
       requestBody = JSON.parse(event.body);
   } catch (e) {
-      return { statusCode: 400, body: JSON.stringify({ error: 'Invalid JSON request.' }) };
+      return { statusCode: 400, body: JSON.stringify({ error: 'Invalid JSON request from client.' }) };
   }
   
-  // 2. FORWARD REQUEST: Send the request to the official Google Gemini API
+  // 2. FORWARD REQUEST TO GEMINI API
   try {
     const geminiResponse = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${GEMINI_API_KEY}`,
@@ -36,12 +36,31 @@ exports.handler = async function(event, context) {
       }
     );
 
+    // 3. CRITICAL ERROR CHECK: Check for 4xx/5xx status BEFORE parsing JSON
+    if (!geminiResponse.ok) {
+        // Read the error message from the API as plain text
+        let errorText = await geminiResponse.text();
+        
+        // Return a clear, informative error back to the client
+        return {
+            statusCode: geminiResponse.status,
+            headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': 'https://ekojc.com',
+            },
+            body: JSON.stringify({ 
+                error: `API REJECTION (${geminiResponse.status})`,
+                message: errorText.substring(0, 500) // Show up to 500 chars of the error
+            }),
+        };
+    }
+
+    // If the request was OK (200), parse the successful JSON response
     const data = await geminiResponse.json();
 
-    // 3. Send the response back to your Netlify front-end
+    // 4. Send the successful response back to the Netlify front-end
     return {
-      statusCode: geminiResponse.status,
-      // CORS headers added for Netlify to allow cross-site communication
+      statusCode: 200, 
       headers: {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': 'https://ekojc.com',
@@ -52,7 +71,7 @@ exports.handler = async function(event, context) {
     };
 
   } catch (error) {
-    console.error('Gemini API Error:', error);
-    return { statusCode: 500, body: JSON.stringify({ error: 'Failed to communicate with the Gemini API.' }) };
+    console.error('Final Fetch Error:', error);
+    return { statusCode: 500, body: JSON.stringify({ error: 'Internal Fetch Failed: Check Netlify logs for details.' }) };
   }
 };
