@@ -99,7 +99,8 @@
         </footer>
     </div>
 
-    <script>
+    <!-- CRITICAL FIX: Added type="text/javascript" to ensure script execution -->
+    <script type="text/javascript">
         // --- Global State & Element References ---
         let chatHistory = [];
         const CHAT_ENDPOINT = '/.netlify/functions/gemini-proxy'; 
