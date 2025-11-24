@@ -1,8 +1,0 @@
-{
-  "name": "gemini-chat-app",
-  "version": "1.0.0",
-  "description": "A simple Gemini chat proxy using Netlify functions.",
-  "dependencies": {
-    "node-fetch": "^2.6.7"
-  }
-}
