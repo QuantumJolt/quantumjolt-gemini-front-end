@@ -1,90 +1,97 @@
-// netlify/functions/gemini-proxy.js - CORS and GEMINI HANDLER
+/**
+ * Netlify Function to securely proxy requests to the Gemini API.
+ * This hides the API key from the client and handles the request/response
+ * formatting for the model.
+ *
+ * The GEMINI_API_KEY is read automatically from the Netlify environment variables.
+ */
 
-// Ensure fetch is available
+// Use commonjs require syntax for Node.js Netlify functions
 const fetch = require('node-fetch');
 
-// The main handler function Netlify calls
-exports.handler = async function(event, context) {
-    
-    // 1. CORS PREFLIGHT CHECK (CRITICAL for fixing 'undefined' error)
-    if (event.httpMethod === 'OPTIONS') {
+// The main handler for the Netlify Function
+exports.handler = async (event, context) => {
+    // Ensure only POST requests are allowed
+    if (event.httpMethod !== 'POST') {
+        return { statusCode: 405, body: 'Method Not Allowed' };
+    }
+
+    // 1. Retrieve API Key from Netlify environment
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+        console.error('GEMINI_API_KEY environment variable is not set.');
         return {
-            statusCode: 204, // 204 No Content for a successful preflight
-            headers: {
-                'Access-Control-Allow-Origin': '*', // Allow any origin to access (can restrict to 'https://ekojc.com')
-                'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type',
-                'Access-Control-Max-Age': '86400', // Cache preflight response for 24 hours
-            },
-            body: ''
+            statusCode: 500,
+            body: JSON.stringify({ error: 'Server configuration error: API Key is missing.' })
         };
     }
-    
-    // 2. CONFIGURATION CHECK
-    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-    const targetModel = "gemini-2.5-flash";  
-    
-    // Send 500 error if key is missing (internal proxy error)
-    if (!GEMINI_API_KEY) {
-      return { statusCode: 500, body: JSON.stringify({ error: 'Server configuration error: API Key is missing from Netlify settings.' }) };
-    }
-    
-    // Parse incoming request body
-    let requestBody;
+
+    let data;
     try {
-        requestBody = JSON.parse(event.body);
+        // 2. Parse the request body from the client
+        data = JSON.parse(event.body);
     } catch (e) {
-        // Changed to 200 response for clarity in debugging
-        return { statusCode: 400, body: JSON.stringify({ error: 'Invalid JSON request from client.' }) };
+        return { statusCode: 400, body: JSON.stringify({ error: 'Invalid JSON body.' }) };
     }
-    
-    // 3. FORWARD REQUEST TO GEMINI API
+
+    const { prompt, history = [] } = data; // Expecting current prompt and history array
+
+    if (!prompt) {
+        return { statusCode: 400, body: JSON.stringify({ error: 'Missing prompt in request body.' }) };
+    }
+
+    // 3. Construct the API Payload
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+    // Map client history to the API format and add the new user prompt
+    const contents = history.map(msg => ({
+        // Ensure roles are correctly mapped: 'user' or 'model'
+        role: msg.role === 'user' ? 'user' : 'model',
+        parts: [{ text: msg.text }]
+    }));
+    contents.push({
+        role: 'user',
+        parts: [{ text: prompt }]
+    });
+
+    const payload = {
+        contents: contents,
+        // Optional: Add Google Search tool for grounded, up-to-date responses
+        tools: [{ "google_search": {} }],
+    };
+
+    // 4. Call the Gemini API
     try {
-      const geminiResponse = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${GEMINI_API_KEY}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestBody),
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            // Success: Return the full response from Gemini
+            return {
+                statusCode: 200,
+                body: JSON.stringify(result)
+            };
+        } else {
+            // Handle Gemini API errors (e.g., bad request, rate limit)
+            const errorMessage = result.error?.message || 'Unknown Gemini API error';
+            console.error('Gemini API returned error:', errorMessage);
+            return {
+                statusCode: result.error?.code || 500,
+                body: JSON.stringify({ error: `Gemini API Error: ${errorMessage}` })
+            };
         }
-      );
-  
-      // 4. CRITICAL ERROR CHECK: Check for 4xx/5xx status BEFORE parsing JSON
-      if (!geminiResponse.ok) {
-          let errorText = await geminiResponse.text();
-          
-          return {
-              statusCode: geminiResponse.status,
-              headers: {
-                  'Content-Type': 'application/json',
-                  'Access-Control-Allow-Origin': '*', // Added CORS header to error responses
-              },
-              body: JSON.stringify({ 
-                  error: `API REJECTION (${geminiResponse.status})`,
-                  message: errorText.substring(0, 500) 
-              }),
-          };
-      }
-  
-      // If the request was OK (200), parse the successful JSON response
-      const data = await geminiResponse.json();
-  
-      // 5. Send the successful response back to the Netlify front-end
-      return {
-        statusCode: 200, 
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*', // Using * for simplicity, can use 'https://ekojc.com'
-          'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type',
-        },
-        body: JSON.stringify(data),
-      };
-  
+
     } catch (error) {
-      console.error('Final Fetch Error:', error);
-      return { statusCode: 500, body: JSON.stringify({ error: 'Internal Fetch Failed: Check Netlify logs for details.' }) };
+        // Handle network or system errors
+        console.error('Function execution or fetch error:', error);
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ error: `Internal Server Error: ${error.message}` })
+        };
     }
 };
