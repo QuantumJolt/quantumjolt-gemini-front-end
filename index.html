@@ -65,7 +65,8 @@
                 <input type="text" id="username" placeholder="Username" class="w-full p-3 rounded-lg bg-[#0d1117] border border-[#30363d] text-white focus:ring-[#58a6ff] focus:border-[#58a6ff]">
                 <input type="password" id="password" placeholder="Password" class="w-full p-3 rounded-lg bg-[#0d1117] border border-[#30363d] text-white focus:ring-[#58a6ff] focus:border-[#58a6ff]">
             </div>
-            <button onclick="handleLogin()" class="w-full mt-6 py-3 bg-[#58a6ff] text-gray-900 font-semibold rounded-lg hover:bg-[#79b8ff] transition duration-200 shadow-md">
+            <!-- IMPORTANT CHANGE: We use an ID to bind the click event in JS -->
+            <button id="login-button" class="w-full mt-6 py-3 bg-[#58a6ff] text-gray-900 font-semibold rounded-lg hover:bg-[#79b8ff] transition duration-200 shadow-md">
                 Log In
             </button>
         </div>
@@ -99,15 +100,22 @@
     </div>
 
     <script>
-        // --- Global State ---
+        // --- Global State & Element References ---
         let chatHistory = [];
-        const CHAT_ENDPOINT = '/.netlify/functions/gemini-proxy'; // Netlify function URL
+        const CHAT_ENDPOINT = '/.netlify/functions/gemini-proxy'; 
         const loginOverlay = document.getElementById('login-overlay');
         const mainApp = document.getElementById('app');
         const chatHistoryDiv = document.getElementById('chat-history');
         const userInput = document.getElementById('user-input');
         const sendButton = document.getElementById('send-button');
         const loadingIndicator = document.getElementById('loading-indicator');
+        
+        // Login elements
+        const loginButton = document.getElementById('login-button');
+        const usernameInput = document.getElementById('username');
+        const passwordInput = document.getElementById('password');
+        const loginErrorMessage = document.getElementById('login-error-message');
+
 
         // --- Utility Functions ---
 
@@ -125,11 +133,9 @@
          */
         function displayMessage(text, role) {
             const messageElement = document.createElement('div');
-            // Use flex classes for message alignment
             messageElement.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'}`;
 
             const contentDiv = document.createElement('div');
-            // Use dynamic classes for styling
             contentDiv.className = `message-box p-3 rounded-xl max-w-xl shadow-lg whitespace-pre-wrap ${role === 'user' ? 'user-message' : 'model-message'}`;
             contentDiv.innerText = text;
 
@@ -199,10 +205,6 @@
          * Handles the client-side login attempt.
          */
         function handleLogin() {
-            const usernameInput = document.getElementById('username');
-            const passwordInput = document.getElementById('password');
-            const errorMessage = document.getElementById('login-error-message');
-
             const enteredUsername = usernameInput.value;
             const enteredPassword = passwordInput.value;
 
@@ -215,10 +217,11 @@
                 loginOverlay.classList.add('hidden');
                 mainApp.classList.remove('hidden');
                 userInput.focus(); // Focus on the chat input
+                loginErrorMessage.classList.add('hidden'); // Hide any previous error
             } else {
                 // Failed login
-                errorMessage.innerText = "Invalid username or password. Please try again.";
-                errorMessage.classList.remove('hidden');
+                loginErrorMessage.innerText = "Invalid username or password. Please try again.";
+                loginErrorMessage.classList.remove('hidden');
                 passwordInput.value = ''; // Clear password field
             }
         }
@@ -227,20 +230,26 @@
         // --- Event Listeners and Initialization ---
 
         window.onload = () => {
-            // Check for Enter key press on the input field
+            // 1. Bind the login button explicitly
+            loginButton.addEventListener('click', handleLogin);
+
+            // 2. Bind Enter key press on password/username fields for login
+            usernameInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') handleLogin();
+            });
+            passwordInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') handleLogin();
+            });
+
+            // 3. Bind Enter key press on the chat input field
             userInput.addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
                     sendMessage();
                 }
             });
-
-            // Check for Enter key press on the password field
-            document.getElementById('password').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    handleLogin();
-                }
-            });
-            document.getElementById('username').focus();
+            
+            // Focus on the username field on load
+            usernameInput.focus();
         };
 
     </script>
