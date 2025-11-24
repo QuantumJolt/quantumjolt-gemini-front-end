@@ -210,11 +210,17 @@
             const enteredUsername = usernameInput.value.trim(); 
             const enteredPassword = passwordInput.value.trim();
 
-            // Hardcoded credentials for client-side protection
-            const correctUsername = "bongothedog";
-            const correctPassword = "81621070318162107033";
+            // Use Base64 encoded secrets to prevent comparison errors due to hidden characters
+            // 'bongothedog' -> 'Ym9uZ290aGVkb2c='
+            const correctUsernameBase64 = 'Ym9uZ290aGVkb2c=';
+            // '81621070318162107033' -> 'ODE2MjEwNzAzMTgxNjIxMDcwMzM='
+            const correctPasswordBase64 = 'ODE2MjEwNzAzMTgxNjIxMDcwMzM=';
 
-            if (enteredUsername === correctUsername && enteredPassword === correctPassword) {
+            // Base64 encode the user input for reliable comparison
+            const enteredUsernameBase64 = btoa(enteredUsername);
+            const enteredPasswordBase64 = btoa(enteredPassword);
+
+            if (enteredUsernameBase64 === correctUsernameBase64 && enteredPasswordBase64 === correctPasswordBase64) {
                 // Successful login
                 loginOverlay.classList.add('hidden');
                 mainApp.classList.remove('hidden');
