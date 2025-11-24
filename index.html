@@ -1,126 +1,16 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Universal Gemini Chat</title>
-    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests" />
-    
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0; 
-            padding: 20px;
-            background-color: #f4f4f9;
-        }
-        #chatContainer {
-            /* Final Width */
-            max-width: 1200px; 
-            margin: 0 auto;
-            background-color: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-        }
-        h1 {
-            color: #333;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 10px;
-            margin-top: 0;
-        }
-        #inputArea {
-            display: flex;
-            margin-top: 15px;
-        }
-        #promptInput {
-            flex-grow: 1;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px 0 0 4px;
-            font-size: 16px;
-        }
-        button {
-            padding: 10px 15px;
-            border: none;
-            background-color: #007bff;
-            color: white;
-            cursor: pointer;
-            font-size: 16px;
-        }
-        #sendBtn {
-             border-radius: 0 4px 4px 0;
-             margin-left: -1px; 
-        }
-        /* Style for the two top control buttons */
-        #controls button {
-            margin-right: 10px;
-            border-radius: 4px;
-            margin-bottom: 15px;
-        }
-        #chatOutput {
-            border: 1px solid #ddd;
-            padding: 15px;
-            min-height: 300px;
-            /* Final Height */
-            max-height: 75vh; 
-            overflow-y: auto;
-            margin-top: 15px;
-            border-radius: 4px;
-            background-color: #fff;
-            line-height: 1.4; /* Tighter line height for overall readability */
-        }
-        /* CRITICAL FIX: Remove all vertical margin from list items/paragraphs for tight spacing */
-        #chatOutput p {
-            margin-top: 0;
-            margin-bottom: 0;
-            padding: 0;
-        }
-        /* Styles for displaying conversation history */
-        .user-message {
-            margin-bottom: 15px;
-            padding: 8px 10px;
-            background-color: #e6f0ff;
-            border-radius: 8px;
-        }
-        .model-message {
-            margin-bottom: 15px;
-            padding: 8px 10px;
-            background-color: #eafaea;
-            border-radius: 8px;
-        }
-        .message-role {
-            font-weight: bold;
-            display: block;
-            margin-bottom: 5px;
-            color: #0056b3; 
-        }
-        .model-role {
-            color: #28a745; 
-        }
-    </style>
-</head>
-<body>
-
-    <div id="chatContainer">
-        <h1>Chat with Gemini (Securely!)</h1>
-        
-        <div id="controls">
-            <button id="newChatBtn" onclick="startNewChat()">Start New Chat</button> 
-            <button id="copyChatBtn" onclick="copyChatText()">Copy Chat</button> 
-        </div>
-
-        <div id="inputArea">
-            <input type="text" id="promptInput" placeholder="Ask Gemini anything...">
-            <button id="sendBtn" onclick="sendMessage()">Send</button>
-        </div>
-
-        <div id="chatOutput">Start a conversation...</div>
-    </div>
-
-    <script>
+<script>
         // *** CONFIGURATION ***
-        // *** FIX: Changed to a RELATIVE URL for Netlify Function access ***
+        // Use a RELATIVE path to access the Netlify Function on the same domain
         const PROXY_URL = "/.netlify/functions/gemini-proxy";
         const MODEL_NAME = "gemini-2.5-flash"; 
+
+        // --- NEW BASIC AUTH CONFIGURATION ---
+        // Your credentials: username:password
+        const AUTH_USER = "bongothedog"; 
+        const AUTH_PASS = "81621070318162107033"; 
+        // Base64 encoding of "bongothedog:81621070318162107033"
+        const AUTH_STRING = btoa(AUTH_USER + ":" + AUTH_PASS);
+        // --- END BASIC AUTH CONFIGURATION ---
 
         let chatHistory = [];
 
@@ -224,7 +114,12 @@
 
                 const response = await fetch(PROXY_URL, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    // --- MODIFIED HEADERS TO INCLUDE AUTHORIZATION ---
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Basic ${AUTH_STRING}`
+                    },
+                    // --- END MODIFIED HEADERS ---
                     body: JSON.stringify(requestBody)
                 });
 
@@ -244,7 +139,7 @@
                 // Handle a JSON error response from the proxy/API
                 else if (data.error || data.message) {
                      // Check if the proxy function returned an explicit error object
-                    geminiMessageText = `Error from Proxy Server: ${data.error ? data.error : data.message}`;
+                    geminiMessageText = `Error from Proxy Server: ${data.error ? (data.error.message || data.error) : data.message}`;
                 }
                 // Handle status error where the response body was empty or not recognized
                 else {
@@ -279,5 +174,3 @@
             displayHistory();
         });
     </script>
-</body>
-</html>
