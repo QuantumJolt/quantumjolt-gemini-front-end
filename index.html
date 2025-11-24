@@ -1,176 +1,185 @@
 <script>
-        // *** CONFIGURATION ***
-        // Use a RELATIVE path to access the Netlify Function on the same domain
-        const PROXY_URL = "/.netlify/functions/gemini-proxy";
-        const MODEL_NAME = "gemini-2.5-flash"; 
+    // *** CONFIGURATION ***
+    const PROXY_URL = "/.netlify/functions/gemini-proxy";
+    const MODEL_NAME = "gemini-2.5-flash"; 
 
-        // --- NEW BASIC AUTH CONFIGURATION ---
-        // Your credentials: username:password
-        const AUTH_USER = "bongothedog"; 
-        const AUTH_PASS = "81621070318162107033"; 
-        // Base64 encoding of "bongothedog:81621070318162107033"
-        const AUTH_STRING = btoa(AUTH_USER + ":" + AUTH_PASS);
-        // --- END BASIC AUTH CONFIGURATION ---
+    let chatHistory = [];
 
-        let chatHistory = [];
+    // Function to convert Gemini's Markdown into basic HTML for display
+    function formatMarkdown(text) {
+        if (!text) return '';
+        // Convert **bold** to <strong>
+        text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        // Convert list items to paragraphs with minimal margin
+        text = text.replace(/(\*|\-)\s+(.*)/g, '<p style="margin-left: 15px;">&bull; $2</p>');
+        // Convert simple newlines to <br> 
+        text = text.replace(/\n/g, '<br>'); 
+        return text;
+    }
 
-        // Function to convert Gemini's Markdown into basic HTML for display
-        function formatMarkdown(text) {
-            if (!text) return '';
-            // Convert **bold** to <strong>
-            text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-            // Convert list items to paragraphs with minimal margin
-            text = text.replace(/(\*|\-)\s+(.*)/g, '<p style="margin-left: 15px;">&bull; $2</p>');
-            // Convert simple newlines to <br> 
-            text = text.replace(/\n/g, '<br>'); 
-            return text;
-        }
-
-        // Function to update the DOM with the full conversation history
-        function displayHistory() {
-            const chatOutput = document.getElementById('chatOutput');
-            chatOutput.innerHTML = ''; 
-
-            if (chatHistory.length === 0) {
-                 chatOutput.innerHTML = 'Start a conversation...';
-                 return;
-            }
-
-            chatHistory.forEach(message => {
-                const role = message.role;
-                const text = message.parts[0].text;
-
-                const chatEntry = document.createElement('div');
-                chatEntry.className = role === 'user' ? 'user-message' : 'model-message';
-                
-                let formattedText = formatMarkdown(text);
-                
-                chatEntry.innerHTML = `
-                    <span class="message-role ${role}-role">${role === 'user' ? 'You' : 'Gemini'}</span>
-                    <div>${formattedText}</div>
-                `;
-                
-                chatOutput.appendChild(chatEntry);
-            });
-            chatOutput.scrollTop = chatOutput.scrollHeight; 
-        }
+    // Function to update the DOM with the full conversation history
+    function displayHistory() {
+        const chatOutput = document.getElementById('chatOutput');
         
-        // FUNCTION: Copies chat history to the clipboard
-        function copyChatText() {
-            if (chatHistory.length === 0) {
-                alert("The chat is empty!");
-                return;
-            }
-            
-            let textToCopy = "--- Gemini Chat Transcript ---\n\n";
-            chatHistory.forEach(message => {
-                const role = message.role === 'user' ? 'You' : 'Gemini';
-                const content = message.parts[0].text;
-                textToCopy += `${role}: ${content}\n\n`;
-            });
-            textToCopy += "--------------------------------\n";
-
-            navigator.clipboard.writeText(textToCopy).then(() => {
-                alert("Chat copied to clipboard!");
-            }).catch(err => {
-                console.error('Could not copy text: ', err);
-                alert("Failed to copy text. Please check console.");
-            });
+        // CRITICAL FIX: Check if the element exists before trying to update it
+        if (!chatOutput) {
+            console.error("Could not find chatOutput element. DOM not ready.");
+            return;
         }
 
+        chatOutput.innerHTML = ''; 
 
-        // Function to clear history and start a new session
-        function startNewChat() {
-            chatHistory = []; 
-            document.getElementById('promptInput').value = '';
-            displayHistory();
-            console.log("Chat history cleared. New session started.");
+        if (chatHistory.length === 0) {
+             chatOutput.innerHTML = 'Start a conversation...';
+             return;
         }
 
-        // Function to handle sending the message and API call
-        async function sendMessage() {
-            const promptInput = document.getElementById('promptInput');
-            const userPrompt = promptInput.value.trim();
-            const chatOutput = document.getElementById('chatOutput');
+        chatHistory.forEach(message => {
+            const role = message.role;
+            const text = message.parts[0].text;
 
-            if (!userPrompt) return;
-
-            const userMessage = { role: "user", parts: [{ text: userPrompt }] };
-            chatHistory.push(userMessage);
-
-            promptInput.value = '';
-            displayHistory();
-            // Append a temporary thinking indicator to the last message
-            if (chatOutput.lastChild) {
-                chatOutput.lastChild.innerHTML = chatOutput.lastChild.innerHTML.replace('</div>', '...thinking</div>');
-            }
-
-
-            try {
-                const requestBody = {
-                    contents: chatHistory, 
-                    model: MODEL_NAME 
-                };
-
-                const response = await fetch(PROXY_URL, {
-                    method: 'POST',
-                    // --- MODIFIED HEADERS TO INCLUDE AUTHORIZATION ---
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Authorization': `Basic ${AUTH_STRING}`
-                    },
-                    // --- END MODIFIED HEADERS ---
-                    body: JSON.stringify(requestBody)
-                });
-
-                // Check if the response received was an empty body (which caused "undefined" before)
-                if (response.status === 204) {
-                    throw new Error("Proxy returned 204 No Content (likely preflight error).");
-                }
-
-                // Attempt to parse JSON
-                const data = await response.json();
-                let geminiMessageText = '';
-
-                // Handle success
-                if (response.ok && data.candidates && data.candidates[0].content && data.candidates[0].content.parts) {
-                    geminiMessageText = data.candidates[0].content.parts[0].text;
-                } 
-                // Handle a JSON error response from the proxy/API
-                else if (data.error || data.message) {
-                     // Check if the proxy function returned an explicit error object
-                    geminiMessageText = `Error from Proxy Server: ${data.error ? (data.error.message || data.error) : data.message}`;
-                }
-                // Handle status error where the response body was empty or not recognized
-                else {
-                    geminiMessageText = `Error from Proxy Server: ${response.statusText || 'Unknown Error'}`;
-                }
-                
-                // Add the response to history
-                const geminiMessage = { role: "model", parts: [{ text: geminiMessageText }] };
-                chatHistory.push(geminiMessage);
-
-            } catch (error) {
-                // Network failure (no connection to proxy at all)
-                console.error("Fetch/Network Error:", error);
-                chatHistory.push({ role: "model", parts: [{ text: `Network Error: Could not reach the server. Details: ${error.message}` }] });
-            }
+            const chatEntry = document.createElement('div');
+            chatEntry.className = role === 'user' ? 'user-message' : 'model-message';
             
-            displayHistory(); 
-        }
-        
-        // ENTER KEY FIX: Attach a listener to the input field on load
-        document.addEventListener('DOMContentLoaded', () => {
-            const inputField = document.getElementById('promptInput');
+            let formattedText = formatMarkdown(text);
             
-            if (inputField) {
-                inputField.addEventListener('keypress', function (e) {
-                    if (e.key === 'Enter') {
-                        e.preventDefault(); 
-                        sendMessage();      
-                    }
-                });
-            }
-            displayHistory();
+            chatEntry.innerHTML = `
+                <span class="message-role ${role}-role">${role === 'user' ? 'You' : 'Gemini'}</span>
+                <div>${formattedText}</div>
+            `;
+            
+            chatOutput.appendChild(chatEntry);
         });
-    </script>
+        chatOutput.scrollTop = chatOutput.scrollHeight; 
+    }
+    
+    // FUNCTION: Copies chat history to the clipboard
+    function copyChatText() {
+        // NOTE: alert() is forbidden in this environment. Using console.error/log.
+        if (chatHistory.length === 0) {
+            console.log("The chat is empty!");
+            return;
+        }
+        
+        let textToCopy = "--- Gemini Chat Transcript ---\n\n";
+        chatHistory.forEach(message => {
+            const role = message.role === 'user' ? 'You' : 'Gemini';
+            const content = message.parts[0].text;
+            textToCopy += `${role}: ${content}\n\n`;
+        });
+        textToCopy += "--------------------------------\n";
+
+        // Using document.execCommand('copy') as navigator.clipboard.writeText() is often blocked in iFrames
+        try {
+            const tempInput = document.createElement('textarea');
+            tempInput.value = textToCopy;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+            console.log("Chat copied to clipboard!");
+        } catch (err) {
+            console.error('Could not copy text: ', err);
+        }
+    }
+
+
+    // Function to clear history and start a new session
+    function startNewChat() {
+        chatHistory = []; 
+        const promptInput = document.getElementById('promptInput');
+        if (promptInput) {
+            promptInput.value = '';
+        }
+        displayHistory();
+        console.log("Chat history cleared. New session started.");
+    }
+
+    // Function to handle sending the message and API call
+    async function sendMessage() {
+        const promptInput = document.getElementById('promptInput');
+        const userPrompt = promptInput.value.trim();
+        const chatOutput = document.getElementById('chatOutput');
+
+        if (!userPrompt) return;
+
+        const userMessage = { role: "user", parts: [{ text: userPrompt }] };
+        chatHistory.push(userMessage);
+
+        promptInput.value = '';
+        displayHistory();
+        
+        // Append a temporary thinking indicator to the last message
+        if (chatOutput) {
+            const lastChildDiv = chatOutput.lastChild.querySelector('div');
+            if (lastChildDiv) {
+                lastChildDiv.innerHTML += '...thinking';
+            }
+        }
+
+
+        try {
+            const requestBody = {
+                contents: chatHistory, 
+                model: MODEL_NAME 
+            };
+
+            const response = await fetch(PROXY_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestBody)
+            });
+
+            // Check if the response received was an empty body 
+            if (response.status === 204) {
+                throw new Error("Proxy returned 204 No Content (likely preflight error).");
+            }
+
+            // Attempt to parse JSON
+            const data = await response.json();
+            let geminiMessageText = '';
+
+            // Handle success
+            if (response.ok && data.candidates && data.candidates[0].content && data.candidates[0].content.parts) {
+                geminiMessageText = data.candidates[0].content.parts[0].text;
+            } 
+            // Handle a JSON error response from the proxy/API
+            else if (data.error || data.message) {
+                 // Check if the proxy function returned an explicit error object
+                geminiMessageText = `Error from Proxy Server: ${data.error ? (data.error.message || data.error) : data.message}`;
+            }
+            // Handle status error where the response body was empty or not recognized
+            else {
+                geminiMessageText = `Error from Proxy Server: ${response.statusText || 'Unknown Error'}`;
+            }
+            
+            // Add the response to history
+            const geminiMessage = { role: "model", parts: [{ text: geminiMessageText }] };
+            chatHistory.push(geminiMessage);
+
+        } catch (error) {
+            // Network failure (no connection to proxy at all)
+            console.error("Fetch/Network Error:", error);
+            chatHistory.push({ role: "model", parts: [{ text: `Network Error: Could not reach the server. Details: ${error.message}` }] });
+        }
+        
+        displayHistory(); 
+    }
+    
+    // ENTER KEY FIX: Attach a listener to the input field on load
+    document.addEventListener('DOMContentLoaded', () => {
+        const inputField = document.getElementById('promptInput');
+        
+        if (inputField) {
+            inputField.addEventListener('keypress', function (e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault(); 
+                    sendMessage();      
+                }
+            });
+        }
+        
+        // This is the CRITICAL line that caused the error before! It runs only when the DOM is ready.
+        displayHistory(); 
+    });
+</script>
