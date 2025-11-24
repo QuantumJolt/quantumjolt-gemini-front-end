@@ -4,7 +4,8 @@ const MODEL_NAME = "gemini-2.5-flash";
 
 let chatHistory = [];
 
-// Function to convert Gemini's Markdown into basic HTML for display
+// --- UTILITY FUNCTIONS ---
+
 function formatMarkdown(text) {
     if (!text) return '';
     // Convert **bold** to <strong>
@@ -16,11 +17,9 @@ function formatMarkdown(text) {
     return text;
 }
 
-// Function to update the DOM with the full conversation history
 function displayHistory() {
     const chatOutput = document.getElementById('chatOutput');
     
-    // Safety check remains, but should never trigger now
     if (!chatOutput) {
         console.error("FATAL: chatOutput element missing. Check HTML structure.");
         return;
@@ -52,7 +51,8 @@ function displayHistory() {
     chatOutput.scrollTop = chatOutput.scrollHeight; 
 }
 
-// Make functions globally available
+// --- GLOBAL FUNCTIONS (Called by onclick events) ---
+
 window.startNewChat = function() {
     chatHistory = []; 
     const promptInput = document.getElementById('promptInput');
@@ -124,29 +124,23 @@ window.sendMessage = async function() {
             body: JSON.stringify(requestBody)
         });
 
-        // Check if the response received was an empty body 
         if (response.status === 204) {
             throw new Error("Proxy returned 204 No Content (likely preflight error).");
         }
 
-        // Attempt to parse JSON
         const data = await response.json();
         let geminiMessageText = '';
 
-        // Handle success
         if (response.ok && data.candidates && data.candidates[0].content && data.candidates[0].content.parts) {
             geminiMessageText = data.candidates[0].content.parts[0].text;
         } 
-        // Handle a JSON error response from the proxy/API
         else if (data.error || data.message) {
             geminiMessageText = `Error from Proxy Server: ${data.error ? (data.error.message || data.error) : data.message}`;
         }
-        // Handle status error where the response body was empty or not recognized
         else {
             geminiMessageText = `Error from Proxy Server: ${response.statusText || 'Unknown Error'}`;
         }
         
-        // Add the response to history
         const geminiMessage = { role: "model", parts: [{ text: geminiMessageText }] };
         chatHistory.push(geminiMessage);
 
@@ -158,10 +152,10 @@ window.sendMessage = async function() {
     displayHistory(); 
 }
 
-// Run initial display and event listeners after script loading
+// --- INITIALIZATION ---
+// 1. Attach keyboard listener (must run after DOM is available)
 document.addEventListener('DOMContentLoaded', () => {
     const inputField = document.getElementById('promptInput');
-    
     if (inputField) {
         inputField.addEventListener('keypress', function (e) {
             if (e.key === 'Enter') {
@@ -170,7 +164,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-    
-    // Initial display is called here, guaranteeing DOM is ready
-    displayHistory(); 
 });
+
+// 2. INITIALIZE DISPLAY (Relies on script placement at end of <body>)
+displayHistory();
