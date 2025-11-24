@@ -1,6 +1,17 @@
 [build]
   publish = "." 
-
+  
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
+
+# NEW: Redirect rule to trigger Basic Auth
+# This uses the official Netlify redirect syntax to force the browser challenge.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  force = true
+  
+  [redirects.headers]
+    Basic-Auth = "bongothedog:81621070318162107033"
