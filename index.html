@@ -21,10 +21,9 @@
     function displayHistory() {
         const chatOutput = document.getElementById('chatOutput');
         
-        // Defensive check is now less critical since the script is at the end of body, 
-        // but it's good practice to keep it.
+        // This check remains, but should no longer be triggered if placed correctly
         if (!chatOutput) {
-            console.error("Could not find chatOutput element. Script running out of context.");
+            console.error("FATAL: chatOutput element missing. Check HTML structure.");
             return;
         }
 
@@ -56,7 +55,6 @@
     
     // FUNCTION: Copies chat history to the clipboard
     function copyChatText() {
-        // NOTE: alert() is forbidden in this environment. Using console.error/log.
         if (chatHistory.length === 0) {
             console.log("The chat is empty!");
             return;
@@ -70,7 +68,7 @@
         });
         textToCopy += "--------------------------------\n";
 
-        // Using document.execCommand('copy') as navigator.clipboard.writeText() is often blocked in iFrames
+        // Using document.execCommand('copy') 
         try {
             const tempInput = document.createElement('textarea');
             tempInput.value = textToCopy;
@@ -102,7 +100,7 @@
         const userPrompt = promptInput.value.trim();
         const chatOutput = document.getElementById('chatOutput');
 
-        if (!userPrompt) return;
+        if (!userPrompt || !promptInput) return; // Add check for promptInput too
 
         const userMessage = { role: "user", parts: [{ text: userPrompt }] };
         chatHistory.push(userMessage);
@@ -111,10 +109,9 @@
         displayHistory();
         
         // Append a temporary thinking indicator to the last message
-        if (chatOutput) {
+        if (chatOutput && chatOutput.lastChild) {
             const lastChildDiv = chatOutput.lastChild.querySelector('div');
             if (lastChildDiv) {
-                // Remove the old 'Start a conversation...' text if it was there
                 lastChildDiv.innerHTML = lastChildDiv.innerHTML.replace('...thinking', '');
                 lastChildDiv.innerHTML += '...thinking';
             }
@@ -169,7 +166,7 @@
         displayHistory(); 
     }
     
-    // ENTER KEY FIX: Attach a listener to the input field on load
+    // Attach listener to input field and initialize display AFTER all functions are defined
     document.addEventListener('DOMContentLoaded', () => {
         const inputField = document.getElementById('promptInput');
         
@@ -181,10 +178,9 @@
                 }
             });
         }
-        
-        // This is the CRITICAL line that caused the error before! It runs only when the DOM is ready.
-        // It is kept for completeness, though moving the script to the end of <body> 
-        // makes this listener functionally redundant for this initial call.
-        displayHistory(); 
     });
+
+    // CRITICAL: Call displayHistory immediately after the script block loads 
+    // when placed at the end of <body> to render initial state.
+    displayHistory();
 </script>
