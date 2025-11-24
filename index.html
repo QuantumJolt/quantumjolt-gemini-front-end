@@ -118,7 +118,8 @@
 
     <script>
         // *** CONFIGURATION ***
-        const PROXY_URL = "https://ekojc.com/.netlify/functions/gemini-proxy";
+        // *** FIX: Changed to a RELATIVE URL for Netlify Function access ***
+        const PROXY_URL = "/.netlify/functions/gemini-proxy";
         const MODEL_NAME = "gemini-2.5-flash"; 
 
         let chatHistory = [];
@@ -209,7 +210,11 @@
 
             promptInput.value = '';
             displayHistory();
-            chatOutput.lastChild.innerHTML += '...thinking';
+            // Append a temporary thinking indicator to the last message
+            if (chatOutput.lastChild) {
+                chatOutput.lastChild.innerHTML = chatOutput.lastChild.innerHTML.replace('</div>', '...thinking</div>');
+            }
+
 
             try {
                 const requestBody = {
@@ -223,20 +228,37 @@
                     body: JSON.stringify(requestBody)
                 });
 
+                // Check if the response received was an empty body (which caused "undefined" before)
+                if (response.status === 204) {
+                    throw new Error("Proxy returned 204 No Content (likely preflight error).");
+                }
+
+                // Attempt to parse JSON
                 const data = await response.json();
                 let geminiMessageText = '';
 
+                // Handle success
                 if (response.ok && data.candidates && data.candidates[0].content && data.candidates[0].content.parts) {
                     geminiMessageText = data.candidates[0].content.parts[0].text;
-                } else {
-                    geminiMessageText = `Error from Proxy Server: ${data.error ? data.error.message : response.statusText}`;
+                } 
+                // Handle a JSON error response from the proxy/API
+                else if (data.error || data.message) {
+                     // Check if the proxy function returned an explicit error object
+                    geminiMessageText = `Error from Proxy Server: ${data.error ? data.error : data.message}`;
                 }
-
+                // Handle status error where the response body was empty or not recognized
+                else {
+                    geminiMessageText = `Error from Proxy Server: ${response.statusText || 'Unknown Error'}`;
+                }
+                
+                // Add the response to history
                 const geminiMessage = { role: "model", parts: [{ text: geminiMessageText }] };
                 chatHistory.push(geminiMessage);
 
             } catch (error) {
-                chatHistory.push({ role: "model", parts: [{ text: "Network Error: Could not reach proxy." }] });
+                // Network failure (no connection to proxy at all)
+                console.error("Fetch/Network Error:", error);
+                chatHistory.push({ role: "model", parts: [{ text: `Network Error: Could not reach the server. Details: ${error.message}` }] });
             }
             
             displayHistory(); 
