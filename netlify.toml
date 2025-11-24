@@ -4,9 +4,3 @@
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
-
-# NEW: Basic Authentication Configuration
-[[headers]]
-  for = "/*"
-  [headers.values]
-    Basic-Auth = "bongothedog:81621070318162107033"
