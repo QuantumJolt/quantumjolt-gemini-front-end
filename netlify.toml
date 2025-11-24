@@ -4,3 +4,9 @@
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
+
+# Universal Redirect: Forces all requests to index.html to fix page loading
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
