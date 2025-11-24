@@ -1,6 +1,9 @@
 [build]
-  publish = "." 
-  
+  # We are explicitly adding a build command to ensure NPM dependencies 
+  # are installed before the functions are bundled.
+  command = "npm install"
+  publish = "/" 
+
 [functions]
   directory = "netlify/functions"
-  node_bundler = "esbuild"
+  node_bundler = "zip"
