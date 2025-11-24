@@ -19,10 +19,11 @@
 
     // Function to update the DOM with the full conversation history
     function displayHistory() {
+        // Since we are using window.onload, this should now safely find the element
         const chatOutput = document.getElementById('chatOutput');
         
-        // This check remains, but should no longer be triggered if placed correctly
         if (!chatOutput) {
+            // If this fires now, the HTML element ID is wrong or the site is still suspended/redirecting
             console.error("FATAL: chatOutput element missing. Check HTML structure.");
             return;
         }
@@ -100,7 +101,7 @@
         const userPrompt = promptInput.value.trim();
         const chatOutput = document.getElementById('chatOutput');
 
-        if (!userPrompt || !promptInput) return; // Add check for promptInput too
+        if (!userPrompt || !promptInput) return; 
 
         const userMessage = { role: "user", parts: [{ text: userPrompt }] };
         chatHistory.push(userMessage);
@@ -166,8 +167,8 @@
         displayHistory(); 
     }
     
-    // Attach listener to input field and initialize display AFTER all functions are defined
-    document.addEventListener('DOMContentLoaded', () => {
+    // FINAL FIX: Use window.onload to ensure the element is 100% available
+    window.onload = function() {
         const inputField = document.getElementById('promptInput');
         
         if (inputField) {
@@ -178,9 +179,8 @@
                 }
             });
         }
-    });
-
-    // CRITICAL: Call displayHistory immediately after the script block loads 
-    // when placed at the end of <body> to render initial state.
-    displayHistory();
+        
+        // Initialize display after ALL page content is loaded
+        displayHistory(); 
+    };
 </script>
