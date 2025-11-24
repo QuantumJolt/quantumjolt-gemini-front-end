@@ -206,31 +206,37 @@
          * Handles the client-side login attempt.
          */
         function handleLogin() {
-            // FIX: Use .trim() to eliminate any accidental whitespace from the user input
-            const enteredUsername = usernameInput.value.trim(); 
-            const enteredPassword = passwordInput.value.trim();
+            // Guarantee string conversion, trim whitespace, and Base64 encode for reliable comparison.
+            const enteredUsername = String(usernameInput.value).trim(); 
+            const enteredPassword = String(passwordInput.value).trim();
 
-            // Use Base64 encoded secrets to prevent comparison errors due to hidden characters
+            // Correct secrets (Base64 encoded):
             // 'bongothedog' -> 'Ym9uZ290aGVkb2c='
             const correctUsernameBase64 = 'Ym9uZ290aGVkb2c=';
             // '81621070318162107033' -> 'ODE2MjEwNzAzMTgxNjIxMDcwMzM='
             const correctPasswordBase64 = 'ODE2MjEwNzAzMTgxNjIxMDcwMzM=';
 
-            // Base64 encode the user input for reliable comparison
-            const enteredUsernameBase64 = btoa(enteredUsername);
-            const enteredPasswordBase64 = btoa(enteredPassword);
+            try {
+                const enteredUsernameBase64 = btoa(enteredUsername);
+                const enteredPasswordBase64 = btoa(enteredPassword);
 
-            if (enteredUsernameBase64 === correctUsernameBase64 && enteredPasswordBase64 === correctPasswordBase64) {
-                // Successful login
-                loginOverlay.classList.add('hidden');
-                mainApp.classList.remove('hidden');
-                userInput.focus(); // Focus on the chat input
-                loginErrorMessage.classList.add('hidden'); // Hide any previous error
-            } else {
-                // Failed login
-                loginErrorMessage.innerText = "Invalid username or password. Please try again.";
+                if (enteredUsernameBase64 === correctUsernameBase64 && enteredPasswordBase64 === correctPasswordBase64) {
+                    // Successful login
+                    loginOverlay.classList.add('hidden');
+                    mainApp.classList.remove('hidden');
+                    userInput.focus(); // Focus on the chat input
+                    loginErrorMessage.classList.add('hidden'); // Hide any previous error
+                } else {
+                    // Failed login
+                    loginErrorMessage.innerText = "Invalid username or password. Please try again.";
+                    loginErrorMessage.classList.remove('hidden');
+                    passwordInput.value = ''; // Clear password field
+                }
+            } catch (e) {
+                // Handle case where btoa fails (e.g., non-Latin characters, though unlikely here)
+                loginErrorMessage.innerText = "An input error occurred. Please use standard characters.";
                 loginErrorMessage.classList.remove('hidden');
-                passwordInput.value = ''; // Clear password field
+                console.error("Base64 encoding failed:", e);
             }
         }
 
