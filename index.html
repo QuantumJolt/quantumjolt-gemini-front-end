@@ -21,9 +21,10 @@
     function displayHistory() {
         const chatOutput = document.getElementById('chatOutput');
         
-        // CRITICAL FIX: Check if the element exists before trying to update it
+        // Defensive check is now less critical since the script is at the end of body, 
+        // but it's good practice to keep it.
         if (!chatOutput) {
-            console.error("Could not find chatOutput element. DOM not ready.");
+            console.error("Could not find chatOutput element. Script running out of context.");
             return;
         }
 
@@ -113,6 +114,8 @@
         if (chatOutput) {
             const lastChildDiv = chatOutput.lastChild.querySelector('div');
             if (lastChildDiv) {
+                // Remove the old 'Start a conversation...' text if it was there
+                lastChildDiv.innerHTML = lastChildDiv.innerHTML.replace('...thinking', '');
                 lastChildDiv.innerHTML += '...thinking';
             }
         }
@@ -180,6 +183,8 @@
         }
         
         // This is the CRITICAL line that caused the error before! It runs only when the DOM is ready.
+        // It is kept for completeness, though moving the script to the end of <body> 
+        // makes this listener functionally redundant for this initial call.
         displayHistory(); 
     });
 </script>
