@@ -24,7 +24,6 @@ app.post('/', async (req, res) => {
     }
 
     // 2. Construct the API Payload
-    // Note: The /v1beta/ prefix is not standard but retained here for compatibility
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${API_KEY}`;
 
     // Map client history to the API format and add the new user prompt
@@ -73,13 +72,3 @@ app.post('/', async (req, res) => {
 app.listen(PORT, () => {
     console.log(`Cloud Run Server listening on port ${PORT}`);
 });
-
-
-### Your Final, Critical Steps
-
-1.  **Paste the `server.js` code** above into your local `server.js` file.
-2.  **Verify `package.json` is updated** (it should contain `express` and the `"start": "node server.js"` script).
-3.  **Deploy to Google Cloud Run.** (Crucial: Set the port to **8080** and add the **`GEMINI_API_KEY`** environment variable in the Cloud Run settings).
-4.  **Update `index.html`:** Get the secure URL from your Cloud Run dashboard and replace the `CHAT_ENDPOINT` in your `index.html` file.
-
-This deployment on the Google Cloud IP range is the only coding solution that can reliably bypass the school's firewall policies.
