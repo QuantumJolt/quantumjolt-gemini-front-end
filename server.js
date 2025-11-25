@@ -3,13 +3,20 @@ const fetch = require('node-fetch');
 const app = express();
 
 // Cloud Run expects traffic on this port, which is set by the environment
+// We read the PORT environment variable provided by Google Cloud.
 const PORT = process.env.PORT || 8080;
 const API_KEY = process.env.GEMINI_API_KEY;
 
 // Middleware to parse JSON bodies from incoming requests
 app.use(express.json());
 
-// Main chat proxy endpoint
+// --- FIX 1: Handle GET requests (Fixes the "Cannot GET /" error) ---
+app.get('/', (req, res) => {
+    // This route confirms the service is running and accessible.
+    res.status(200).send('Gemini Proxy Server is running successfully. Use POST to access the API.');
+});
+
+// Main chat proxy endpoint (Handles the POST request from index.html)
 app.post('/', async (req, res) => {
     // 1. Check for API Key
     if (!API_KEY) {
@@ -69,6 +76,6 @@ app.post('/', async (req, res) => {
 });
 
 // Start the server and listen on the port defined by Cloud Run
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => { // Explicitly listen on 0.0.0.0 for Cloud Run
     console.log(`Cloud Run Server listening on port ${PORT}`);
 });
